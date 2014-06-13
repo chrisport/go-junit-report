@@ -49,25 +49,27 @@ func NewJUnitProperty(name, value string) JUnitProperty {
 // in the format described at http://windyroad.org/dl/Open%20Source/JUnit.xsd
 func JUnitReportXML(report *Report, w io.Writer) error {
 	suites := []JUnitTestSuite{}
+	pkg := report.Packages[0]
+	packageName := pkg.Name
+	packageName = packageName[:strings.LastIndex(packageName, "/")]
+	ts := JUnitTestSuite{
+		Tests:      len(pkg.Tests),
+		Failures:   0,
+		Time:       formatTime(pkg.Time),
+		Name:       packageName,
+		Properties: []JUnitProperty{},
+		TestCases:  []JUnitTestCase{},
+	}
+
+	// properties
+	ts.Properties = append(ts.Properties, NewJUnitProperty("go.version", runtime.Version()))
 
 	// convert Report to JUnit test suites
-	for _, pkg := range report.Packages {
-		ts := JUnitTestSuite{
-			Tests:      len(pkg.Tests),
-			Failures:   0,
-			Time:       formatTime(pkg.Time),
-			Name:       pkg.Name,
-			Properties: []JUnitProperty{},
-			TestCases:  []JUnitTestCase{},
-		}
-
+	for _, pkg = range report.Packages {
 		classname := pkg.Name
 		if idx := strings.LastIndex(classname, "/"); idx > -1 && idx < len(pkg.Name) {
 			classname = pkg.Name[idx+1:]
 		}
-
-		// properties
-		ts.Properties = append(ts.Properties, NewJUnitProperty("go.version", runtime.Version()))
 
 		// individual test cases
 		for _, test := range pkg.Tests {
@@ -90,9 +92,8 @@ func JUnitReportXML(report *Report, w io.Writer) error {
 
 			ts.TestCases = append(ts.TestCases, testCase)
 		}
-
-		suites = append(suites, ts)
 	}
+	suites = append(suites, ts)
 
 	// to xml
 	bytes, err := xml.MarshalIndent(suites, "", "\t")
@@ -103,7 +104,7 @@ func JUnitReportXML(report *Report, w io.Writer) error {
 	writer := bufio.NewWriter(w)
 
 	// remove newline from xml.Header, because xml.MarshalIndent starts with a newline
-	writer.WriteString(xml.Header[:len(xml.Header)-1])
+	writer.WriteString(xml.Header[:len(xml.Header) - 1])
 	writer.Write(bytes)
 	writer.WriteByte('\n')
 	writer.Flush()
