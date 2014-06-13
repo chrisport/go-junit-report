@@ -7,6 +7,7 @@ import (
 	"io"
 	"runtime"
 	"strings"
+	"errors"
 )
 
 type JUnitTestSuite struct {
@@ -49,6 +50,9 @@ func NewJUnitProperty(name, value string) JUnitProperty {
 // in the format described at http://windyroad.org/dl/Open%20Source/JUnit.xsd
 func JUnitReportXML(report *Report, w io.Writer) error {
 	suites := []JUnitTestSuite{}
+	if len(report.Packages)<=0{
+		return errors.New("No report found")
+	}
 	pkg := report.Packages[0]
 	packageName := pkg.Name
 	packageName = packageName[:strings.LastIndex(packageName, "/")]
