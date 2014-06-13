@@ -50,16 +50,16 @@ func NewJUnitProperty(name, value string) JUnitProperty {
 // in the format described at http://windyroad.org/dl/Open%20Source/JUnit.xsd
 func JUnitReportXML(report *Report, w io.Writer) error {
 	suites := []JUnitTestSuite{}
-	if len(report.Packages)<=0{
+	if len(report.Packages) <= 0 {
 		return errors.New("No report found")
 	}
 	pkg := report.Packages[0]
 	packageName := pkg.Name
 	packageName = packageName[:strings.LastIndex(packageName, "/")]
 	ts := JUnitTestSuite{
-		Tests:      len(pkg.Tests),
+		Tests:      0,
 		Failures:   0,
-		Time:       formatTime(pkg.Time),
+		Time:       "",
 		Name:       packageName,
 		Properties: []JUnitProperty{},
 		TestCases:  []JUnitTestCase{},
@@ -67,16 +67,18 @@ func JUnitReportXML(report *Report, w io.Writer) error {
 
 	// properties
 	ts.Properties = append(ts.Properties, NewJUnitProperty("go.version", runtime.Version()))
-
+	var time = 0
 	// convert Report to JUnit test suites
-	for _, pkg = range report.Packages {
-		classname := pkg.Name
-		if idx := strings.LastIndex(classname, "/"); idx > -1 && idx < len(pkg.Name) {
-			classname = pkg.Name[idx+1:]
+	for _, pkgCurrent := range report.Packages {
+		classname := pkgCurrent.Name
+		if idx := strings.LastIndex(classname, "/"); idx > -1 && idx < len(pkgCurrent.Name) {
+			classname = pkgCurrent.Name[idx+1:]
 		}
+		time+=pkgCurrent.Time
 
 		// individual test cases
-		for _, test := range pkg.Tests {
+		for _, test := range pkgCurrent.Tests {
+			ts.Tests = ts.Tests+1
 			testCase := JUnitTestCase{
 				Classname: classname,
 				Name:      test.Name,
@@ -97,6 +99,7 @@ func JUnitReportXML(report *Report, w io.Writer) error {
 			ts.TestCases = append(ts.TestCases, testCase)
 		}
 	}
+	ts.Time = formatTime(time)
 	suites = append(suites, ts)
 
 	// to xml
@@ -109,6 +112,7 @@ func JUnitReportXML(report *Report, w io.Writer) error {
 
 	// remove newline from xml.Header, because xml.MarshalIndent starts with a newline
 	writer.WriteString(xml.Header[:len(xml.Header) - 1])
+	writer.WriteByte('\n')
 	writer.Write(bytes)
 	writer.WriteByte('\n')
 	writer.Flush()
